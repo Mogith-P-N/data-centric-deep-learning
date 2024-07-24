@@ -160,13 +160,13 @@ class MNISTDirectionalityTest(BaseTest):
       # 
       # Pseudocode:
       # --
-      # batch_metric = ...
+      batch_metric = (preds_raw == preds_transformed).float().mean().item()
       # 
       # Type:
       # --
       # batch_metric: float (not torch.Tensor!)
       #   Metric computed on a minibatch
-      pass  # remove me
+      # remove me
       # ================================
       metric.append(batch_metric)
       pbar.update()
