@@ -27,13 +27,13 @@ def main(args):
   # initialize the `MonitoringSystem` using the vocabulary
   # and predicted probabilities.
   monitor = MonitoringSystem(tr_vocab, tr_probs, tr_labels)
-
+  final = []
   for index in range(1, 9):
     te_ds = ProductReviewStream(index)
     te_dl = DataLoader(te_ds, batch_size=128, shuffle=False, num_workers=4)
     te_vocab = te_ds.get_vocab()
     te_probs = get_probs(system, te_dl)
-
+    
     results = None
 
     # Compute monitored results.
@@ -52,8 +52,11 @@ def main(args):
       print('==========================')
       print(f'KS test p-value: {results["ks_score"]:.3f}')
       print(f'Histogram intersection: {results["hist_score"]:.3f}')
-      print(f'OOD Vocab %: {results["outlier_score"]*100:.2f}')
+      print(f'OOD Vocab %: {results["outlier_score"]*100}')
       print('')  # new line
+      final.append(results)
+  print(f"final results {final}")
+
 
 
 def get_probs(system, loader):
