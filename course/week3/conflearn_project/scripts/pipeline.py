@@ -107,6 +107,7 @@ class TrainIdentifyReview(FlowSpec):
     out-of-sample probabilities for every element. Each element
     will appear in a single cross validation split exactly once. 
     """
+    self.config.train.batch_size = 32
     dm = ReviewDataModule(self.config)
     # combine training and dev datasets
     X = np.concatenate([
@@ -163,6 +164,37 @@ class TrainIdentifyReview(FlowSpec):
       # probs_: np.array[float] (shape: |test set|)
       # TODO
       # ===============================================
+      X_train, X_test = X[train_index], X[test_index]
+      y_train, y_test = y[train_index], y[test_index]
+
+      # Convert to torch tensors
+      X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
+      y_train_tensor = torch.tensor(y_train, dtype=torch.long)
+      X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
+
+      # Create train and test datasets
+      train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
+      test_dataset = TensorDataset(X_test_tensor)
+      print(f"Batch size: {self.config.train.batch_size}")
+      train_loader = DataLoader(train_dataset, batch_size=self.config.train.batch_size, shuffle=True)
+      test_loader = DataLoader(test_dataset, batch_size=self.config.train.batch_size)
+
+      # Create SentimentClassifierSystem
+      system = SentimentClassifierSystem(self.config)
+      trainer = Trainer(max_epochs=self.config.train.optimizer.max_epochs)
+
+      # Fit the model
+      trainer.fit(system, train_loader)
+      # Predict probabilities on test set
+      predictions = trainer.predict(system, test_loader)
+
+      # Convert list of predictions to NumPy array
+      predictions_array = np.concatenate([torch.tensor(p).numpy() if isinstance(p, torch.Tensor) else np.array(p) for p in predictions])
+      
+      # Ensure predictions are 1D
+      probs_ = predictions_array.flatten() 
+      print(probs_) 
+
       assert probs_ is not None, "`probs_` is not defined."
       probs[test_index] = probs_
 
@@ -191,23 +223,12 @@ class TrainIdentifyReview(FlowSpec):
     prob = np.stack([1 - prob, prob]).T
   
     # rank label indices by issues
-    ranked_label_issues = None
-    
-    # =============================
-    # FILL ME OUT
-    # 
-    # Apply confidence learning to labels and out-of-sample
-    # predicted probabilities. 
-    # 
-    # HINT: use cleanlab. See tutorial. 
-    # 
-    # Our solution is one function call.
-    # 
-    # Types
-    # --
-    # ranked_label_issues: List[int]
-    # TODO
-    # =============================
+    ranked_label_issues = find_label_issues(
+        np.asarray(self.all_df.label),
+        prob,
+        return_indices_ranked_by="self_confidence"
+    )
+ 
     assert ranked_label_issues is not None, "`ranked_label_issues` not defined."
 
     # save this to class
@@ -305,6 +326,15 @@ class TrainIdentifyReview(FlowSpec):
     # dm.test_dataset.data = test slice of self.all_df
     # TODO
     # # ====================================
+    # Extract the sizes of train, dev, and test datasets
+    train_size = len(dm.train_dataset)
+    dev_size = len(dm.dev_dataset)
+    test_size = len(dm.test_dataset)  # Ensure you get the test size too
+
+    # Update datasets with corrected labels from self.all_df
+    dm.train_dataset.data = self.all_df.iloc[:train_size].reset_index(drop=True)
+    dm.dev_dataset.data = self.all_df.iloc[train_size:train_size + dev_size].reset_index(drop=True)
+    dm.test_dataset.data = self.all_df.iloc[train_size + dev_size:train_size + dev_size + test_size].reset_index(drop=True)
 
     # start from scratch
     system = SentimentClassifierSystem(self.config)
