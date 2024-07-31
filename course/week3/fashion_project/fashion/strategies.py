@@ -1,4 +1,5 @@
 import torch
+import random
 import numpy as np
 from typing import List
 
@@ -21,7 +22,12 @@ def random_sampling(pred_probs: torch.Tensor, budget : int = 1000) -> List[int]:
   # HINT: when you randomly sample, do not choose duplicates.
   # HINT: please ensure indices is a list of integers
   # ================================
-  return indices
+  indices = list(range(len(pred_probs)))
+    
+  # Randomly sample `budget` number of indices without replacement
+  sampled_indices = random.sample(indices, budget)
+
+  return sampled_indices
 
 def uncertainty_sampling(pred_probs: torch.Tensor, budget : int = 1000) -> List[int]:
   '''Pick examples where the model is the least confident in its predictions.
@@ -29,8 +35,7 @@ def uncertainty_sampling(pred_probs: torch.Tensor, budget : int = 1000) -> List[
   :param budget: the number of examples you are allowed to pick for labeling.
   :return indices: A list of indices (into the `pred_probs`) for examples to label.
   '''
-  indices = []
-  chance_prob = 1 / 10.  # may be useful
+   # may be useful
   # ================================
   # FILL ME OUT
   # Sort indices by the predicted probabilities and choose the 1000 examples with 
@@ -39,6 +44,11 @@ def uncertainty_sampling(pred_probs: torch.Tensor, budget : int = 1000) -> List[
   # Take the first 1000.
   # HINT: please ensure indices is a list of integers
   # ================================
+  preds_np = pred_probs.numpy()
+  uncertainity = 1 - np.max(preds_np, axis=1)
+  sorted_indices = np.argsort(uncertainity)
+  indices = sorted_indices[:budget].tolist()
+
   return indices
 
 def margin_sampling(pred_probs: torch.Tensor, budget : int = 1000) -> List[int]:
@@ -47,12 +57,16 @@ def margin_sampling(pred_probs: torch.Tensor, budget : int = 1000) -> List[int]:
   :param budget: the number of examples you are allowed to pick for labeling.
   :return indices: A list of indices (into the `pred_probs`) for examples to label.
   '''
-  indices = []
   # ================================
   # FILL ME OUT
   # Sort indices by the different in predicted probabilities in the top two classes per example.
   # Take the first 1000.
   # ================================
+  preds_np = pred_probs.numpy()
+  margins = np.partition(preds_np, -2, axis=1)[:,-1] -  np.partition(preds_np, -2, axis=1)[:,-2]
+
+  indices = np.argsort(margins)[:budget].tolist()
+
   return indices
 
 def entropy_sampling(pred_probs: torch.Tensor, budget : int = 1000) -> List[int]:
@@ -71,4 +85,6 @@ def entropy_sampling(pred_probs: torch.Tensor, budget : int = 1000) -> List[int]
   # Take the first 1000.
   # HINT: Add epsilon when taking a log for entropy computation
   # ================================
-  return indices
+  preds_np = pred_probs.numpy()
+  entropy = -np.sum(preds_np * np.log(preds_np + epsilon))
+  return np.argsort(entropy)[:budget].tolist()

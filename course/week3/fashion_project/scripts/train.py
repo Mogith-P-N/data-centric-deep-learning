@@ -49,15 +49,11 @@ class TrainFlow(FlowSpec):
     
     if self.augment:
       transform = transforms.Compose([
-        # ================================
-        # FILL ME OUT
-        # Any augmentations to apply to the training dataset with the goal of 
-        # enlarging the effective dataset size via "self supervision": an augmented
-        # data point maintains the same label.
-        # TODO
-        # ================================
         transforms.ToTensor(),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomRotation(degrees=45)
       ])
+
     else:
       transform = transforms.ToTensor()
 
